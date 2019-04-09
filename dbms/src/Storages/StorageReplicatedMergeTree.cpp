@@ -3424,8 +3424,8 @@ bool StorageReplicatedMergeTree::getFakePartCoveringAllPartsInPartition(const St
 }
 
 
-void StorageReplicatedMergeTree::clearColumnInPartition(
-    const ASTPtr & partition, const Field & column_name, const Context & query_context)
+void StorageReplicatedMergeTree::clearInPartition(
+    const ASTPtr & partition, const String & type, const Field & name, const Context & query_context)
 {
     assertNotReadonly();
 
@@ -3443,9 +3443,20 @@ void StorageReplicatedMergeTree::clearColumnInPartition(
     /// We allocated new block number for this part, so new merges can't merge clearing parts with new ones
 
     LogEntry entry;
-    entry.type = LogEntry::CLEAR_COLUMN;
+    if (type == "column")
+    {
+        entry.type = LogEntry::CLEAR_COLUMN;
+        entry.column_name = name.safeGet<String>();
+    }
+    else if (type == "index")
+    {
+        entry.type = LogEntry::CLEAR_INDEX;
+        entry.index_name = name.safeGet<String>();
+    }
+    else
+        throw Exception("Unexpected clear type " + type + ". This is a bug.", ErrorCodes::LOGICAL_ERROR);
+
     entry.new_part_name = getPartNamePossiblyFake(data.format_version, drop_range_info);
-    entry.column_name = column_name.safeGet<String>();
     entry.create_time = time(nullptr);
 
     String log_znode_path = getZooKeeper()->create(zookeeper_path + "/log/log-", entry.toString(), zkutil::CreateMode::PersistentSequential);

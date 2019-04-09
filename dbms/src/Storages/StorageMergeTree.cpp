@@ -772,7 +772,8 @@ void StorageMergeTree::clearOldMutations()
 }
 
 
-void StorageMergeTree::clearColumnInPartition(const ASTPtr & partition, const Field & column_name, const Context & context)
+void StorageMergeTree::clearInPartition(
+        const ASTPtr & partition, const String & type, const Field & name, const Context & context)
 {
     /// Asks to complete merges and does not allow them to start.
     /// This protects against "revival" of data for a removed partition after completion of merge.
@@ -787,8 +788,18 @@ void StorageMergeTree::clearColumnInPartition(const ASTPtr & partition, const Fi
     std::vector<MergeTreeData::AlterDataPartTransactionPtr> transactions;
 
     AlterCommand alter_command;
-    alter_command.type = AlterCommand::DROP_COLUMN;
-    alter_command.column_name = get<String>(column_name);
+    if (type == "column")
+    {
+        alter_command.type = AlterCommand::DROP_COLUMN;
+        alter_command.column_name = get<String>(name);
+    }
+    else if (type == "index")
+    {
+        alter_command.type = AlterCommand::DROP_INDEX;
+        alter_command.index_name = get<String>(name);
+    }
+    else
+        throw Exception("Unexpected clear type " + type + ". This is a bug.", ErrorCodes::LOGICAL_ERROR);
 
     auto new_columns = getColumns();
     auto new_indices = getIndicesDescription();
@@ -805,7 +816,7 @@ void StorageMergeTree::clearColumnInPartition(const ASTPtr & partition, const Fi
         if (auto transaction = data.alterDataPart(part, columns_for_parts, new_indices.indices, false))
             transactions.push_back(std::move(transaction));
 
-        LOG_DEBUG(log, "Removing column " << get<String>(column_name) << " from part " << part->name);
+        LOG_DEBUG(log, "Removing " + type + " " << get<String>(name) << " from part " << part->name);
     }
 
     if (transactions.empty())
@@ -890,7 +901,11 @@ void StorageMergeTree::alterPartition(const ASTPtr & query, const PartitionComma
             break;
 
             case PartitionCommand::CLEAR_COLUMN:
-                clearColumnInPartition(command.partition, command.column_name, context);
+                clearInPartition(command.partition, "column", command.column_name, context);
+                break;
+
+            case PartitionCommand::CLEAR_INDEX:
+                clearInPartition(command.partition, "index", command.column_name, context);
                 break;
 
             case PartitionCommand::FREEZE_ALL_PARTITIONS:

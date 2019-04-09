@@ -69,6 +69,18 @@ std::optional<PartitionCommand> PartitionCommand::parse(const ASTAlterCommand * 
         res.column_name = column_name;
         return res;
     }
+    else if (command_ast->type == ASTAlterCommand::DROP_INDEX && command_ast->partition)
+    {
+        if (!command_ast->clear_index)
+            throw Exception("Can't DROP INDEX from partition. It is possible only to CLEAR INDEX in partition", ErrorCodes::BAD_ARGUMENTS);
+
+        PartitionCommand res;
+        res.type = CLEAR_INDEX;
+        res.partition = command_ast->partition;
+        const Field & index_name = *getIdentifierName(command_ast->index);
+        res.index_name = index_name;
+        return res;
+    }
     else if (command_ast->type == ASTAlterCommand::FREEZE_ALL)
     {
         PartitionCommand command;
@@ -92,6 +104,19 @@ void PartitionCommands::validate(const IStorage & table)
             {
                 throw Exception("Wrong column name. Cannot find column " + column_name + " to clear it from partition",
                     DB::ErrorCodes::ILLEGAL_COLUMN);
+            }
+        }
+        else if (command.type == PartitionCommand::CLEAR_INDEX)
+        {
+            String index_name = command.index_name.safeGet<String>();
+
+            const auto & indices = table.getIndicesDescription().indices;
+            if (std::find_if(
+                    std::cbegin(indices), std::cend(indices),
+                    [&](const auto & index) { return index->name == index_name; }) == std::cend(indices))
+            {
+                throw Exception("Wrong index name. Cannot find index " + index_name + " to clear it from partition",
+                                DB::ErrorCodes::BAD_ARGUMENTS);
             }
         }
     }

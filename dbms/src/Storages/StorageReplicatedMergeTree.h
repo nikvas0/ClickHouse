@@ -541,7 +541,7 @@ private:
     std::optional<Cluster::Address> findClusterAddress(const ReplicatedMergeTreeAddress & leader_address) const;
 
     // Partition helpers
-    void clearColumnInPartition(const ASTPtr & partition, const Field & column_name, const Context & query_context);
+    void clearInPartition(const ASTPtr & partition, const String & type, const Field & column_name, const Context & query_context);
     void dropPartition(const ASTPtr & query, const ASTPtr & partition, bool detach, const Context & query_context);
     void attachPartition(const ASTPtr & partition, bool part, const Context & query_context);
     void replacePartitionFrom(const StoragePtr & source_table, const ASTPtr & partition, bool replace, const Context & query_context);

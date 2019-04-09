@@ -30,6 +30,7 @@ bool ParserAlterCommand::parseImpl(Pos & pos, ASTPtr & node, Expected & expected
 
     ParserKeyword s_add_index("ADD INDEX");
     ParserKeyword s_drop_index("DROP INDEX");
+    ParserKeyword s_clear_index("CLEAR INDEX");
 
     ParserKeyword s_attach_partition("ATTACH PARTITION");
     ParserKeyword s_detach_partition("DETACH PARTITION");
@@ -123,6 +124,24 @@ bool ParserAlterCommand::parseImpl(Pos & pos, ASTPtr & node, Expected & expected
 
         command->type = ASTAlterCommand::DROP_INDEX;
         command->detach = false;
+    }
+    else if (s_clear_index.ignore(pos, expected))
+    {
+        if (s_if_exists.ignore(pos, expected))
+            command->if_exists = true;
+
+        if (!parser_name.parse(pos, command->index, expected))
+            return false;
+
+        command->type = ASTAlterCommand::DROP_INDEX;
+        command->clear_index = true;
+        command->detach = false;
+
+        if (s_in_partition.ignore(pos, expected))
+        {
+            if (!parser_partition.parse(pos, command->partition, expected))
+                return false;
+        }
     }
     else if (s_clear_column.ignore(pos, expected))
     {
@@ -289,6 +308,8 @@ bool ParserAlterCommand::parseImpl(Pos & pos, ASTPtr & node, Expected & expected
         command->children.push_back(command->col_decl);
     if (command->column)
         command->children.push_back(command->column);
+    if (command->index)
+        command->children.push_back(command->index);
     if (command->partition)
         command->children.push_back(command->partition);
     if (command->order_by)

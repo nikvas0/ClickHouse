@@ -68,7 +68,7 @@ public:
     /** The ADD INDEX query stores the name of the index following AFTER.
      *  The DROP INDEX query stores the name for deletion.
      */
-     ASTPtr index;
+    ASTPtr index;
 
     /** Used in DROP PARTITION and ATTACH PARTITION FROM queries.
      *  The value or ID of the partition is stored here.
@@ -89,6 +89,8 @@ public:
     bool part = false;          /// true for ATTACH PART
 
     bool clear_column = false;  /// for CLEAR COLUMN (do not drop column from metadata)
+
+    bool clear_index = false;  /// for CLEAR INDEX (do not drop index from metadata)
 
     bool if_not_exists = false;  /// option for ADD_COLUMN
 
