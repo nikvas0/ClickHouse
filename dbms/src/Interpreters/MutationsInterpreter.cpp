@@ -293,19 +293,21 @@ void MutationsInterpreter::prepare(bool dry_run)
 
     if (!affected_indices_columns.empty())
     {
-        std::vector<Stage> stages_copy;
-        /// Copy all filled stages except index calculation stage.
-        for (const auto & stage : stages)
+        if (!stages.empty())
         {
-            stages_copy.emplace_back(context);
-            stages_copy.back().column_to_updated = stage.column_to_updated;
-            stages_copy.back().output_columns = stage.output_columns;
-            stages_copy.back().filters = stage.filters;
+            std::vector<Stage> stages_copy;
+            /// Copy all filled stages except index calculation stage.
+            for (const auto &stage : stages)
+            {
+                stages_copy.emplace_back(context);
+                stages_copy.back().column_to_updated = stage.column_to_updated;
+                stages_copy.back().output_columns = stage.output_columns;
+                stages_copy.back().filters = stage.filters;
+            }
+            auto first_stage_header = prepareInterpreterSelect(stages_copy, /* dry_run = */ true)->getSampleBlock();
+            auto in = std::make_shared<NullBlockInputStream>(first_stage_header);
+            updated_header = std::make_unique<Block>(addStreamsForLaterStages(stages_copy, in)->getHeader());
         }
-        auto first_stage_header = prepareInterpreterSelect(stages_copy, /* dry_run = */ true)->getSampleBlock();
-        auto in = std::make_shared<NullBlockInputStream>(first_stage_header);
-        updated_header = std::make_unique<Block>(addStreamsForLaterStages(stages_copy, in)->getHeader());
-
         /// Special step to recalculate affected indices.
         stages.emplace_back(context);
         for (const auto & column : affected_indices_columns)
