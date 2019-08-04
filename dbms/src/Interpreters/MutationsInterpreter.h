@@ -35,6 +35,7 @@ public:
 
 private:
     void prepare(bool dry_run);
+    std::unique_ptr<InterpreterSelectQuery> prepareInterpreterSelect(bool dry_run);
 
     BlockInputStreamPtr addStreamsForLaterStages(BlockInputStreamPtr in) const;
 

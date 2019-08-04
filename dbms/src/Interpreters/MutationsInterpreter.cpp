@@ -300,7 +300,6 @@ void MutationsInterpreter::prepare(bool dry_run)
                     column, std::make_shared<ASTIdentifier>(column));
     }
 
-
     /// Next, for each stage calculate columns changed by this and previous stages.
     for (size_t i = 0; i < stages.size(); ++i)
     {
@@ -320,6 +319,20 @@ void MutationsInterpreter::prepare(bool dry_run)
                 stages[i].output_columns.insert(kv.first);
         }
     }
+
+    auto tmp = prepareInterpreterSelect(/* dry_run = */ true);
+
+    if (!affected_indices_columns.empty())
+        stages.pop_back();
+
+    interpreter_select = prepareInterpreterSelect(dry_run);
+
+    is_prepared = true;
+}
+
+std::unique_ptr<InterpreterSelectQuery> MutationsInterpreter::prepareInterpreterSelect(bool dry_run)
+{
+    NamesAndTypesList all_columns = storage->getColumns().getAllPhysical();
 
     /// Now, calculate `expressions_chain` for each stage except the first.
     /// Do it backwards to propagate information about columns required as input for a stage to the previous stage.
@@ -363,7 +376,7 @@ void MutationsInterpreter::prepare(bool dry_run)
             for (const auto & kv : stage.column_to_updated)
             {
                 actions_chain.getLastActions()->add(ExpressionAction::copyColumn(
-                    kv.second->getColumnName(), kv.first, /* can_replace = */ true));
+                        kv.second->getColumnName(), kv.first, /* can_replace = */ true));
             }
         }
 
@@ -403,9 +416,7 @@ void MutationsInterpreter::prepare(bool dry_run)
         select->setExpression(ASTSelectQuery::Expression::WHERE, std::move(where_expression));
     }
 
-    interpreter_select = std::make_unique<InterpreterSelectQuery>(select, context, storage, SelectQueryOptions().analyze(dry_run).ignoreLimits());
-
-    is_prepared = true;
+    return std::make_unique<InterpreterSelectQuery>(select, context, storage, SelectQueryOptions().analyze(dry_run).ignoreLimits());
 }
 
 BlockInputStreamPtr MutationsInterpreter::addStreamsForLaterStages(BlockInputStreamPtr in) const
