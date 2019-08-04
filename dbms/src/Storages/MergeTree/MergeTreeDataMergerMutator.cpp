@@ -1025,7 +1025,7 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataMergerMutator::mutatePartToTempor
 
         NameSet files_to_skip = {"checksums.txt", "columns.txt"};
         auto mrk_extension = data.settings.index_granularity_bytes ? getAdaptiveMrkExtension() : getNonAdaptiveMrkExtension();
-        for (const auto & entry : in_header)
+        for (const auto & entry : mutations_interpreter.getUpdatedHeader())
         {
             IDataType::StreamCallback callback = [&](const IDataType::SubstreamPath & substream_path)
             {
@@ -1055,12 +1055,12 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataMergerMutator::mutatePartToTempor
             createHardLink(dir_it.path().toString(), destination.toString());
         }
 
-        merge_entry->columns_written = all_columns.size() - in_header.columns();
+        merge_entry->columns_written = all_columns.size() - mutations_interpreter.getUpdatedHeader().columns();
 
         IMergedBlockOutputStream::WrittenOffsetColumns unused_written_offsets;
         MergedColumnOnlyOutputStream out(
             data,
-            in_header,
+            mutations_interpreter.getUpdatedHeader(),
             new_part_tmp_path,
             /* sync = */ false,
             compression_codec,
@@ -1099,7 +1099,7 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataMergerMutator::mutatePartToTempor
         NameSet source_columns_name_set(source_column_names.begin(), source_column_names.end());
         for (auto it = new_data_part->columns.begin(); it != new_data_part->columns.end();)
         {
-            if (source_columns_name_set.count(it->name) || in_header.has(it->name))
+            if (source_columns_name_set.count(it->name) || mutations_interpreter.getUpdatedHeader().has(it->name))
                 ++it;
             else
                 it = new_data_part->columns.erase(it);
